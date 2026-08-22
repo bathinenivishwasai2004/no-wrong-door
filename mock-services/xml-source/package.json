@@ -1,0 +1,12 @@
+{
+  "name": "nwd-xml-source",
+  "version": "1.0.0",
+  "description": "Mock XML data source for No Wrong Door — slow responses with intermittent 500 errors",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

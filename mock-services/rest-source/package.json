@@ -1,0 +1,12 @@
+{
+  "name": "nwd-rest-source",
+  "version": "1.0.0",
+  "description": "Mock REST data source for No Wrong Door — paginated residents with occasional duplicate records",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

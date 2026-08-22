@@ -1,0 +1,14 @@
+server:
+  port: 8080
+
+mock-services:
+  rest:
+    base-url: http://localhost:3001
+  xml:
+    base-url: http://localhost:3002
+
+# Logging — keep it clean for Phase 0
+logging:
+  level:
+    com.nowrongdoor: INFO
+    org.springframework.web: INFO
