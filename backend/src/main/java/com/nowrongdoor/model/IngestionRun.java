@@ -14,7 +14,7 @@ import java.time.Instant;
 @Table(name = "ingestion_runs")
 public class IngestionRun {
 
-    public enum Status { RUNNING, COMPLETE, FAILED }
+    public enum Status { RUNNING, SUCCESS, PARTIAL, COMPLETE, FAILED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

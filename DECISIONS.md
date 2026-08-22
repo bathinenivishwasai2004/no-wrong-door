@@ -201,3 +201,28 @@ callers.
 relying on try/catch. This is an intentional forcing function toward
 explicit error handling at the API boundary.
 
+---
+
+## ADR-011: Synchronous ingestion with audited partial failure
+
+**Decision:** `POST /api/ingest` runs both source adapters and
+`MatchingService` synchronously inside one transaction. It creates an
+`IngestionRun` at the start and finishes as `SUCCESS`, `PARTIAL`, or `FAILED`.
+
+**Partial failure:** A failed source contributes no invented records. If REST
+works and XML fails, REST residents are matched against an empty XML list and
+persisted as `REST_ONLY`. If XML works and REST fails, XML records are persisted
+as `XML_ONLY`. Adapter errors and available retry/page telemetry remain on the
+audit record.
+
+**Persistence and idempotency:** `UnifiedResident` preserves REST and XML
+fields in separate columns. Existing source-specific natural keys are used for
+upsert: REST `id` when present and XML `Ref` for XML-only rows. If a later
+matched run finds separate source-only rows, it consolidates them into one row.
+
+**Audit and transactions:** `IngestionRun` records start/finish timestamps,
+source counts, REST pages and duplicates, XML attempts and availability, all
+five match counts, and errors. Matching or persistence failures finalize the
+audit as `FAILED` when possible instead of leaving a misleading `RUNNING` row.
+`GET /api/ingest/status` exposes the latest audit summary.
+

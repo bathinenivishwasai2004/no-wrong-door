@@ -28,12 +28,12 @@ Open **three separate terminals** and run the steps below in order.
 ```bash
 cd mock-services/rest-source
 npm install
-npm start
+python rest_service.py
 ```
 
 You should see:
 ```
-[REST Source] Mock service running on http://localhost:3001
+[REST Source] Mock service running on http://127.0.0.1:8081
 ```
 
 ### Terminal 2 — Start XML Mock Service
@@ -41,12 +41,12 @@ You should see:
 ```bash
 cd mock-services/xml-source
 npm install
-npm start
+python xml_service.py
 ```
 
 You should see:
 ```
-[XML Source] Mock service running on http://localhost:3002
+[XML Source] Mock service running on http://127.0.0.1:8082
 ```
 
 ### Terminal 3 — Start Backend
@@ -88,8 +88,8 @@ Then navigate to the URL shown (typically `http://localhost:3000`).
 | Backend health                 | `curl http://localhost:8080/health`             | `{"status":"UP",...}`       |
 | REST source reachable          | `curl http://localhost:8080/api/status/rest`    | `"status":"UP"`             |
 | XML source reachable           | `curl http://localhost:8080/api/status/xml`     | `"status":"UP"`             |
-| REST mock directly (optional)  | `curl http://localhost:3001/health`             | `{"status":"UP",...}`       |
-| XML mock directly (optional)   | `curl http://localhost:3002/health`             | `<status>UP</status>`       |
+| REST mock directly (optional)  | `curl http://127.0.0.1:8081/health`            | `{"status":"UP",...}`       |
+| XML mock directly (optional)   | `curl http://127.0.0.1:8082/health`            | `<status>UP</status>`       |
 | Dashboard status indicators    | Open `frontend/index.html` in browser          | Both dots green             |
 | Search stub                    | Type any name, click Search                    | 3 stub results appear       |
 
@@ -195,3 +195,42 @@ curl "http://localhost:8080/api/residents/search?query=Garcia"
 
 Phase 1 uses Java 21 (sealed interface pattern matching in switch). The runtime
 is Java 24 (backward-compatible).
+
+## Phase 2C - Ingestion Pipeline
+
+Start the official services and backend in three terminals:
+
+```bash
+cd mock-services/rest-source
+python rest_service.py
+```
+
+```bash
+cd mock-services/xml-source
+python xml_service.py
+```
+
+The REST service listens on `http://127.0.0.1:8081` and the XML service on
+`http://127.0.0.1:8082`. Start the backend from `backend` with `mvnw.cmd
+spring-boot:run` on Windows or `./mvnw spring-boot:run` on macOS/Linux.
+
+Trigger one synchronous ingestion run:
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/ingest
+```
+
+The response contains the run ID, source counts, match counts, status,
+duration, and any warning or failure message. A successful run normally reports
+620 REST records and 540 XML records. If XML fails after retries, the run is
+`PARTIAL` and successful REST records are persisted as `REST_ONLY`.
+
+Inspect the latest audit run with:
+
+```bash
+curl http://127.0.0.1:8080/api/ingest/status
+```
+
+Repeated runs update rows using REST `id` and XML `Ref` rather than creating
+uncontrolled duplicates. The H2 console is available at
+`http://127.0.0.1:8080/h2-console` with JDBC URL `jdbc:h2:mem:nwddb`.
