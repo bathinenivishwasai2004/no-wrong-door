@@ -77,3 +77,34 @@ All code in Phase 0 was **AI-generated** using an AI coding assistant
 - **AI Assistant:** Google Antigravity (Claude-based)
 - **IDE:** Antigravity IDE
 - **Runtime:** Java 24, Node.js v24.14.1, npm 11.11.0
+
+---
+
+## Phase 1 — REST Source Integration
+
+**Tool used:** Google Antigravity (Gemini-based agentic coding assistant)
+
+**Tasks completed with AI assistance:**
+
+1. **Design review:** Reviewed pagination termination strategy (`totalPages` vs.
+   record-count heuristic) and deduplication key options (`id` vs. full equality)
+   before implementation.
+
+2. **Implementation:** Generated `RestResident.java`, `RestPageResponse.java`,
+   `RestFetchResult.java`, updated `RestSourceAdapter.java` with the pagination
+   loop and deduplication accumulation logic, and rewrote `ResidentController.java`
+   to consume `RestFetchResult`.
+
+3. **Testing:** Generated eight WireMock unit tests in
+   `RestSourceAdapterUnitTest.java` and a Phase 1 integration test in
+   `RestSourceAdapterTest.java`. All 13 tests passed.
+
+4. **Bug fix:** Caught a Java source-level compatibility issue (pattern-matching
+   switch requires `--release 21+`; pom.xml was targeting 17). Bumped
+   `java.version` to 21.
+
+5. **Documentation:** Drafted ADR-008, ADR-009, ADR-010 for DECISIONS.md;
+   updated README with Phase 1 demo instructions.
+
+**Human review:** Implementation plan was reviewed and approved before code was
+written. All AI-generated code was reviewed in context.

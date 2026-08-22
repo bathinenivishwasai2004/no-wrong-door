@@ -128,3 +128,76 @@ data in Phase 0 rather than calling the adapters.
   merge results, and how to handle partial failures — all Phase 1 work.
 - The stub response includes a `"source": "stub"` field so it's obvious
   the data isn't real.
+
+---
+
+## ADR-008: Pagination terminates using server-supplied `totalPages` — Phase 1
+
+**Decision:** The REST adapter reads `totalPages` from the first page response
+and loops from `page=1` through `page=totalPages`. The page count is never
+hard-coded.
+
+**Context:** The mock REST service returns a JSON envelope containing
+`{ page, size, totalPages, totalRecords, data }`. This gives the adapter a
+reliable, server-authoritative count of pages.
+
+**Rationale:**
+- Hard-coding page count (e.g., always fetch 2 pages) would silently miss
+  records if the source adds more data or the page size changes.
+- A "stop when fewer records than page size" heuristic would fail if a
+  page happens to be exactly full by coincidence.
+- Using `totalPages` directly is the simplest, most correct approach given
+  that the server provides it.
+
+**Trade-off:** If the first page is itself unreachable, we cannot determine
+`totalPages` and return a `Failure` immediately. This is correct behaviour —
+we cannot make safe assumptions about pagination state we have never seen.
+
+---
+
+## ADR-009: Deduplication by stable `id` field — Phase 1
+
+**Decision:** Cross-page duplicate records are deduplicated using the `id`
+field (e.g., `"R001"`) as the unique key. Records are accumulated into a
+`LinkedHashMap<String, RestResident>` keyed by `id`; first-seen wins.
+
+**Context:** The mock REST service intentionally injects duplicate records
+across page boundaries (30% probability, 1–2 dupes per page). The `id`
+field is assigned by the source system and is stable across pages.
+
+**Rationale:**
+- `id` is the only stable, server-assigned identifier in the response.
+  Deduplicating by full field equality (all fields equal) would fail for
+  records that have the same ID but differ in a mutable field like `address`.
+- "First-seen wins" preserves the earliest page's version of a resident,
+  which is the most natural behaviour and produces deterministic output for
+  a given source state.
+- `LinkedHashMap` preserves insertion order, making results deterministic
+  without a separate sort step.
+
+**What this means for identity matching (Phase 2+):** The REST `id` field
+is opaque to the XML source. Matching a REST resident to an XML case record
+requires a separate identity-matching strategy — that is deferred to Phase 2.
+
+---
+
+## ADR-010: `RestFetchResult` sealed interface — adapter never throws — Phase 1
+
+**Decision:** `RestSourceAdapter.fetchAllResidents()` returns a sealed
+`RestFetchResult` (`Success` | `Failure`) and never propagates exceptions to
+callers.
+
+**Rationale:**
+- The controller layer should decide the HTTP response, not the adapter.
+  If the adapter threw, the controller would need try/catch for every call,
+  coupling error-handling logic to the adapter's exception hierarchy.
+- A `Failure` result can carry enough context (message + cause) for the
+  controller to return a meaningful HTTP 502 to the frontend.
+- Phase 2 graceful-degradation logic needs to inspect "did source X fail?"
+  without catching exceptions — the sealed result type makes this natural:
+  `if (restResult instanceof Failure) { /* fallback to XML */ }`.
+
+**Trade-off:** Callers must pattern-match on the result type rather than
+relying on try/catch. This is an intentional forcing function toward
+explicit error handling at the API boundary.
+

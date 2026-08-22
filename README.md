@@ -156,6 +156,42 @@ no-wrong-door/
 
 ## Phase Roadmap
 
-- **Phase 0** (current): Foundation — mock services, adapters, dashboard skeleton
-- **Phase 1**: Real search, pagination walking, retry/timeout handling, dedup
-- **Phase 2**: Unified resident view, identity matching across sources
+- **Phase 0** ✅ (complete): Foundation — mock services, adapters, dashboard skeleton
+- **Phase 1** ✅ (complete): REST pagination walking, deduplication, real search endpoint
+- **Phase 2**: XML source integration, graceful degradation, unified resident view
+- **Phase 3**: Identity matching across REST and XML sources
+
+---
+
+## Phase 1 — REST Integration Demo
+
+Phase 1 replaces the Phase 0 stub with real data from the paginated REST source.
+
+### What changed
+
+- `RestSourceAdapter.fetchAllResidents()` walks all pages and deduplicates by `id`.
+- `GET /api/residents/search?query=...` now returns real REST source data.
+- Each result card includes `phone`, `address`, and `source: "rest-source"`.
+- Results header shows `N results (from M unique REST records)`.
+
+### Quick demo
+
+```bash
+# Search for a resident by name
+curl "http://localhost:8080/api/residents/search?query=Garcia"
+
+# Search with no results
+curl "http://localhost:8080/api/residents/search?query=Zyx"
+
+# Empty query returns empty list
+curl "http://localhost:8080/api/residents/search?query="
+
+# Kill the REST mock, then:
+curl "http://localhost:8080/api/residents/search?query=Garcia"
+# → HTTP 502 with {"error":"REST source is unreachable: ..."}
+```
+
+### Java version
+
+Phase 1 uses Java 21 (sealed interface pattern matching in switch). The runtime
+is Java 24 (backward-compatible).
