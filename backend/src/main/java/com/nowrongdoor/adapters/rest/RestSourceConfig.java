@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 public class RestSourceConfig {
 
     private String baseUrl;
+    private int pageSize = 10; // default; overridden by application.yml
 
     public String getBaseUrl() {
         return baseUrl;
@@ -19,5 +20,13 @@ public class RestSourceConfig {
 
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
+    }
+
+    public int getPageSize() {
+        return pageSize;
+    }
+
+    public void setPageSize(int pageSize) {
+        this.pageSize = pageSize;
     }
 }

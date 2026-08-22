@@ -4,6 +4,7 @@ server:
 mock-services:
   rest:
     base-url: http://localhost:3001
+    page-size: 10          # records per page requested from REST source
   xml:
     base-url: http://localhost:3002
 
