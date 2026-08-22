@@ -2,6 +2,8 @@ package com.nowrongdoor.api;
 
 import com.nowrongdoor.adapters.rest.RestSourceAdapter;
 import com.nowrongdoor.adapters.xml.XmlSourceAdapter;
+import com.nowrongdoor.repository.IngestionRunRepository;
+import com.nowrongdoor.repository.UnifiedResidentRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,11 +25,22 @@ public class StatusController {
 
     private final RestSourceAdapter restSourceAdapter;
     private final XmlSourceAdapter xmlSourceAdapter;
+    private final UnifiedResidentRepository residentRepository;
+    private final IngestionRunRepository ingestionRunRepository;
 
     public StatusController(RestSourceAdapter restSourceAdapter,
-                            XmlSourceAdapter xmlSourceAdapter) {
+                            XmlSourceAdapter xmlSourceAdapter,
+                            UnifiedResidentRepository residentRepository,
+                            IngestionRunRepository ingestionRunRepository) {
         this.restSourceAdapter = restSourceAdapter;
         this.xmlSourceAdapter = xmlSourceAdapter;
+        this.residentRepository = residentRepository;
+        this.ingestionRunRepository = ingestionRunRepository;
+    }
+
+    @GetMapping
+    public DashboardStats dashboardStats() {
+        return DashboardStats.from(residentRepository, ingestionRunRepository);
     }
 
     /**

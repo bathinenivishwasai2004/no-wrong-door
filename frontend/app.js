@@ -1,204 +1,177 @@
-/**
- * No Wrong Door — Dashboard JavaScript
- *
- * All requests go through OUR backend (localhost:8080) only.
- * The frontend NEVER calls the mock services directly.
- */
-
 (() => {
     'use strict';
 
-    // ── Configuration ──────────────────────────────────
     const API_BASE = 'http://localhost:8080';
-    const STATUS_POLL_INTERVAL = 15_000; // 15 seconds
+    const POLL_INTERVAL = 15_000;
+    const $ = (id) => document.getElementById(id);
 
-    // ── DOM References ─────────────────────────────────
-    const searchInput     = document.getElementById('search-input');
-    const searchButton    = document.getElementById('search-button');
-    const btnText         = searchButton.querySelector('.btn-text');
-    const btnSpinner      = searchButton.querySelector('.btn-spinner');
+    const searchInput = $('search-input');
+    const searchButton = $('search-button');
+    const statusFilter = $('status-filter');
+    const ingestButton = $('ingest-button');
+    const resultsList = $('results-list');
+    const resultsCount = $('results-count');
+    const errorMessage = $('error-message');
+    const detailSection = $('detail-section');
+    const detailContent = $('detail-content');
+    const ingestionMessage = $('ingestion-message');
 
-    const stateEmpty      = document.getElementById('state-empty');
-    const stateLoading    = document.getElementById('state-loading');
-    const stateError      = document.getElementById('state-error');
-    const stateNoResults  = document.getElementById('state-no-results');
-    const resultsList     = document.getElementById('results-list');
-    const resultsCount    = document.getElementById('results-count');
-    const errorMessage    = document.getElementById('error-message');
-
-    const statusRestBadge = document.getElementById('status-rest');
-    const statusXmlBadge  = document.getElementById('status-xml');
-    const sourceCardRest  = document.getElementById('source-card-rest');
-    const sourceCardXml   = document.getElementById('source-card-xml');
-    const sourceStatusRest = document.getElementById('source-status-rest');
-    const sourceStatusXml  = document.getElementById('source-status-xml');
-
-    // ── State Management ───────────────────────────────
     function showState(state) {
-        // Hide all states
-        stateEmpty.hidden     = true;
-        stateLoading.hidden   = true;
-        stateError.hidden     = true;
-        stateNoResults.hidden = true;
-        resultsList.hidden    = true;
-        resultsCount.hidden   = true;
-
-        switch (state) {
-            case 'empty':
-                stateEmpty.hidden = false;
-                break;
-            case 'loading':
-                stateLoading.hidden = false;
-                break;
-            case 'error':
-                stateError.hidden = false;
-                break;
-            case 'no-results':
-                stateNoResults.hidden = false;
-                break;
-            case 'results':
-                resultsList.hidden = false;
-                resultsCount.hidden = false;
-                break;
-        }
+        ['state-empty', 'state-loading', 'state-error', 'state-no-results', 'results-list'].forEach((id) => {
+            $(id).hidden = id !== (state === 'results' ? 'results-list' : `state-${state}`);
+        });
+        resultsCount.hidden = state !== 'results';
     }
 
-    // ── Search ─────────────────────────────────────────
+    function setBusy(button, busy, label) {
+        button.disabled = busy;
+        button.textContent = busy ? label : button.dataset.label;
+    }
+
+    async function api(path, options = {}) {
+        const response = await fetch(`${API_BASE}${path}`, options);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Backend returned ${response.status}`);
+        return data;
+    }
+
     async function performSearch() {
         const query = searchInput.value.trim();
-
-        if (!query) {
+        if (!query && !statusFilter.value) {
             showState('empty');
             return;
         }
-
-        // Show loading state
         showState('loading');
-        searchButton.disabled = true;
-        btnText.hidden = true;
-        btnSpinner.hidden = false;
-
+        setBusy(searchButton, true, 'Searching...');
         try {
-            const response = await fetch(
-                `${API_BASE}/api/residents/search?query=${encodeURIComponent(query)}`
-            );
-
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || `Backend returned ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (!data.results || data.results.length === 0) {
+            const params = new URLSearchParams({ q: query });
+            if (statusFilter.value) params.set('status', statusFilter.value);
+            const data = await api(`/api/residents/search?${params}`);
+            if (!data.results?.length) {
                 showState('no-results');
                 return;
             }
-
-            // Render results
             renderResults(data.results);
-
-            // Show matched count and optionally total REST records fetched
-            const matchText = `${data.totalResults} result${data.totalResults !== 1 ? 's' : ''}`;
-            const restTotalText = data.restTotal != null
-                ? ` (from ${data.restTotal} unique REST records)`
-                : '';
-            resultsCount.textContent = matchText + restTotalText;
-
+            resultsCount.textContent = `${data.totalResults} result${data.totalResults === 1 ? '' : 's'}`;
             showState('results');
-
-        } catch (err) {
-            console.error('Search failed:', err);
-            errorMessage.textContent = err.message || 'Unable to reach the backend service';
+        } catch (error) {
+            errorMessage.textContent = error.message;
             showState('error');
         } finally {
-            searchButton.disabled = false;
-            btnText.hidden = false;
-            btnSpinner.hidden = true;
+            setBusy(searchButton, false);
         }
+    }
+
+    function statusBadge(status) {
+        return `<span class="status-pill status-pill--${status.toLowerCase()}">${escapeHtml(status)}</span>`;
     }
 
     function renderResults(results) {
         resultsList.innerHTML = '';
-
         results.forEach((resident) => {
-            const initials = (resident.firstName?.[0] || '') + (resident.lastName?.[0] || '');
-
-            const card = document.createElement('div');
+            const card = document.createElement('button');
+            card.type = 'button';
             card.className = 'resident-card';
             card.innerHTML = `
-                <div class="resident-avatar">${escapeHtml(initials)}</div>
+                <div class="resident-avatar">${escapeHtml(initials(resident.name))}</div>
                 <div class="resident-info">
-                    <div class="resident-name">${escapeHtml(resident.firstName)} ${escapeHtml(resident.lastName)}</div>
+                    <div class="resident-name">${escapeHtml(resident.name || 'Unnamed resident')}</div>
                     <div class="resident-details">
-                        <span>ID: ${escapeHtml(resident.id)}</span>
-                        ${resident.dateOfBirth ? `<span>DOB: ${escapeHtml(resident.dateOfBirth)}</span>` : ''}
-                        ${resident.phone ? `<span>${escapeHtml(resident.phone)}</span>` : ''}
+                        <span>${escapeHtml(resident.dateOfBirth || 'DOB unknown')}</span>
+                        <span>${escapeHtml(resident.city || 'Location unknown')}</span>
+                        <span>${escapeHtml(resident.sourceAvailability?.rest ? 'REST' : '')}${resident.sourceAvailability?.xml ? ' + XML' : ''}</span>
                     </div>
-                    ${resident.address ? `<div class="resident-address">${escapeHtml(resident.address)}</div>` : ''}
+                    <div class="resident-address">${escapeHtml(resident.address || 'Address unavailable')}</div>
                 </div>
-                <span class="resident-source">${escapeHtml(resident.source || 'unknown')}</span>
-            `;
+                <div class="resident-result-meta">${statusBadge(resident.matchStatus)}<span>${resident.matchConfidence}</span></div>`;
+            card.addEventListener('click', () => loadDetail(resident.id));
             resultsList.appendChild(card);
         });
     }
 
-    // ── Status Polling ─────────────────────────────────
-    async function checkStatus(source) {
+    async function loadDetail(id) {
+        detailSection.hidden = false;
+        detailContent.innerHTML = '<div class="detail-loading">Loading resident detail...</div>';
         try {
-            const response = await fetch(`${API_BASE}/api/status/${source}`);
-            if (!response.ok) {
-                return { status: 'DOWN', message: `HTTP ${response.status}` };
-            }
-            return await response.json();
-        } catch (err) {
-            return { status: 'DOWN', message: err.message };
+            const resident = await api(`/api/residents/${encodeURIComponent(id)}`);
+            detailContent.innerHTML = detailMarkup(resident);
+            detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+            detailContent.innerHTML = `<p class="state-message">${escapeHtml(error.message)}</p>`;
         }
+    }
+
+    function detailMarkup(resident) {
+        const rest = resident.rest || {};
+        const xml = resident.xml || {};
+        return `<div class="detail-heading"><h3>${escapeHtml(resident.name || 'Unnamed resident')}</h3>${statusBadge(resident.matchStatus)}<strong>${resident.matchConfidence}</strong></div>
+            <p class="detail-note">${escapeHtml(resident.matchNotes || '')}</p>
+            <div class="detail-grid"><div><h4>REST source</h4><p>ID: ${escapeHtml(rest.id || 'Unavailable')}</p><p>Name: ${escapeHtml([rest.firstName, rest.lastName].filter(Boolean).join(' ') || 'Unavailable')}</p><p>DOB: ${escapeHtml(rest.dateOfBirth || 'Unavailable')}</p><p>${escapeHtml(rest.address || 'Unavailable')}, ${escapeHtml(rest.city || 'Unavailable')}</p><p>Phone: ${escapeHtml(rest.phone || 'Unavailable')}</p></div>
+            <div><h4>XML source</h4><p>Ref: ${escapeHtml(xml.ref || 'Unavailable')}</p><p>Name: ${escapeHtml(xml.name || 'Unavailable')}</p><p>DOB: ${escapeHtml(xml.born || 'Unavailable')}</p><p>${escapeHtml(xml.address || 'Unavailable')}, ${escapeHtml(xml.town || 'Unavailable')}</p><p>Benefit: ${escapeHtml(xml.benefitCode || 'Unavailable')}</p></div></div>`;
+    }
+
+    async function refreshStats() {
+        try {
+            const stats = await api('/api/status');
+            [['total', stats.totalResidents], ['exact', stats.exact], ['probable', stats.probable], ['ambiguous', stats.ambiguous], ['rest-only', stats.restOnly], ['xml-only', stats.xmlOnly]].forEach(([id, value]) => $(
+                `stat-${id}`).textContent = value ?? '-');
+            $('last-ingestion').textContent = stats.lastIngestionStatus
+                ? `${stats.lastIngestionStatus} · ${stats.lastIngestionTime || 'in progress'}` : 'No ingestion run';
+        } catch (error) {
+            $('last-ingestion').textContent = 'Backend unavailable';
+        }
+    }
+
+    async function runIngestion() {
+        setBusy(ingestButton, true, 'Ingesting...');
+        ingestionMessage.hidden = false;
+        ingestionMessage.className = 'ingestion-message ingestion-message--running';
+        ingestionMessage.textContent = 'Ingestion running...';
+        try {
+            const result = await api('/api/ingest', { method: 'POST' });
+            ingestionMessage.className = `ingestion-message ingestion-message--${result.status.toLowerCase()}`;
+            ingestionMessage.textContent = `${result.status}: ${result.restRecords} REST, ${result.xmlRecords} XML records. ${result.error || ''}`;
+            await refreshStats();
+            if (!resultsList.hidden) await performSearch();
+        } catch (error) {
+            ingestionMessage.className = 'ingestion-message ingestion-message--failed';
+            ingestionMessage.textContent = `FAILED: ${error.message}`;
+        } finally {
+            setBusy(ingestButton, false);
+        }
+    }
+
+    async function checkStatus(source) {
+        try { return await api(`/api/status/${source}`); }
+        catch (error) { return { status: 'DOWN' }; }
     }
 
     function updateStatusUI(source, data) {
         const status = data.status || 'DOWN';
-
-        if (source === 'rest') {
-            statusRestBadge.setAttribute('data-status', status);
-            sourceCardRest.setAttribute('data-status', status);
-            sourceStatusRest.textContent = status === 'UP' ? 'Connected' : 'Offline';
-        } else {
-            statusXmlBadge.setAttribute('data-status', status);
-            sourceCardXml.setAttribute('data-status', status);
-            sourceStatusXml.textContent = status === 'UP' ? 'Connected' : 'Offline';
-        }
+        $(`status-${source}`).dataset.status = status;
+        $(`source-card-${source}`).dataset.status = status;
+        $(`source-status-${source}`).textContent = status === 'UP' ? 'Connected' : 'Offline';
     }
 
     async function pollStatuses() {
-        const [restData, xmlData] = await Promise.all([
-            checkStatus('rest'),
-            checkStatus('xml')
-        ]);
-
-        updateStatusUI('rest', restData);
-        updateStatusUI('xml', xmlData);
+        const [rest, xml] = await Promise.all([checkStatus('rest'), checkStatus('xml')]);
+        updateStatusUI('rest', rest);
+        updateStatusUI('xml', xml);
     }
 
-    // ── Utilities ──────────────────────────────────────
-    function escapeHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
+    function initials(name) { return (name || '?').split(/\s+/).slice(0, 2).map((part) => part[0]).join(''); }
+    function escapeHtml(value) { const div = document.createElement('div'); div.textContent = value ?? ''; return div.innerHTML; }
 
-    // ── Event Listeners ────────────────────────────────
+    searchButton.dataset.label = 'Search';
+    ingestButton.dataset.label = 'Ingest Data';
     searchButton.addEventListener('click', performSearch);
+    searchInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') performSearch(); });
+    statusFilter.addEventListener('change', performSearch);
+    ingestButton.addEventListener('click', runIngestion);
+    $('detail-close').addEventListener('click', () => { detailSection.hidden = true; });
 
-    searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            performSearch();
-        }
-    });
-
-    // ── Initialization ─────────────────────────────────
     showState('empty');
+    refreshStats();
     pollStatuses();
-    setInterval(pollStatuses, STATUS_POLL_INTERVAL);
+    setInterval(pollStatuses, POLL_INTERVAL);
 })();

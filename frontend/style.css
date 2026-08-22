@@ -150,8 +150,24 @@ body::before {
 
 .header-status {
     display: flex;
+    align-items: center;
     gap: var(--space-sm);
 }
+
+#ingest-button, #detail-close {
+    padding: var(--space-xs) var(--space-md);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#ingest-button:hover, #detail-close:hover { background: var(--accent-glow); }
+#ingest-button:disabled { opacity: 0.6; cursor: wait; }
 
 .status-badge {
     display: flex;
@@ -233,6 +249,27 @@ main {
     color: var(--text-secondary);
     margin-bottom: var(--space-lg);
 }
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: var(--space-sm);
+}
+
+.stat-card {
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+}
+
+.stat-label { display: block; color: var(--text-secondary); font-size: var(--font-size-xs); }
+.stat-card strong { display: block; margin-top: var(--space-xs); font-size: var(--font-size-xl); }
+.ingestion-message { margin-top: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-sm); font-size: var(--font-size-sm); }
+.ingestion-message--success { color: var(--status-up); background: var(--status-up-glow); }
+.ingestion-message--partial { color: hsl(38, 90%, 65%); background: hsla(38, 90%, 50%, 0.15); }
+.ingestion-message--failed { color: var(--status-down); background: var(--error-bg); }
+.ingestion-message--running { color: var(--accent-hover); background: var(--accent-glow); }
 
 /* ── Search Bar ────────────────────────────────────── */
 .search-bar {
@@ -329,6 +366,9 @@ main {
     transform: none;
     box-shadow: none;
 }
+
+.search-options { display: flex; align-items: center; gap: var(--space-sm); margin-top: var(--space-md); color: var(--text-secondary); font-size: var(--font-size-sm); }
+#status-filter { padding: var(--space-sm) var(--space-md); background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font: inherit; }
 
 .btn-spinner {
     width: 18px;
@@ -445,6 +485,15 @@ main {
     animation-fill-mode: backwards;
 }
 
+button.resident-card { width: 100%; color: inherit; text-align: left; cursor: pointer; }
+.resident-result-meta { display: flex; align-items: center; gap: var(--space-sm); flex-direction: column; font-size: var(--font-size-xs); color: var(--text-secondary); }
+.status-pill { display: inline-block; padding: 2px var(--space-sm); border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: 700; letter-spacing: 0.04em; }
+.status-pill--exact { color: hsl(152, 80%, 72%); background: hsla(152, 70%, 48%, 0.18); }
+.status-pill--probable { color: hsl(38, 90%, 72%); background: hsla(38, 90%, 50%, 0.18); }
+.status-pill--ambiguous { color: hsl(0, 85%, 75%); background: hsla(0, 72%, 58%, 0.18); }
+.status-pill--rest_only { color: hsl(210, 85%, 76%); background: hsla(210, 75%, 55%, 0.18); }
+.status-pill--xml_only { color: var(--text-secondary); background: hsla(220, 12%, 42%, 0.22); }
+
 .resident-card:nth-child(1) { animation-delay: 0.05s; }
 .resident-card:nth-child(2) { animation-delay: 0.1s; }
 .resident-card:nth-child(3) { animation-delay: 0.15s; }
@@ -516,6 +565,15 @@ main {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+#detail-section[hidden] { display: none; }
+.detail-heading { display: flex; align-items: center; gap: var(--space-md); margin-bottom: var(--space-md); }
+.detail-heading h3 { margin-right: auto; }
+.detail-note { color: var(--text-secondary); margin-bottom: var(--space-lg); }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
+.detail-grid > div { padding: var(--space-md); background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.detail-grid h4 { margin-bottom: var(--space-sm); }
+.detail-grid p { color: var(--text-secondary); font-size: var(--font-size-sm); }
 
 /* ── Source Cards ──────────────────────────────────── */
 .sources-grid {
@@ -638,6 +696,9 @@ footer {
     .sources-grid {
         grid-template-columns: 1fr;
     }
+
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .detail-grid { grid-template-columns: 1fr; }
 
     main {
         padding: var(--space-md);

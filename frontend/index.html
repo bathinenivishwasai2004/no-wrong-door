@@ -32,6 +32,7 @@
                 </div>
             </div>
             <div class="header-status">
+                <button id="ingest-button" type="button">Ingest Data</button>
                 <div class="status-badge" id="status-rest" title="REST Source">
                     <span class="status-dot"></span>
                     <span class="status-label">REST</span>
@@ -48,6 +49,22 @@
          Main Content
          ═══════════════════════════════════════════ -->
     <main>
+        <section id="stats-section" class="glass-panel">
+            <div class="results-header">
+                <h2>Database Overview</h2>
+                <span id="last-ingestion" class="results-count">No ingestion run</span>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card"><span class="stat-label">Total Residents</span><strong id="stat-total">-</strong></div>
+                <div class="stat-card"><span class="stat-label">Exact Matches</span><strong id="stat-exact">-</strong></div>
+                <div class="stat-card"><span class="stat-label">Probable</span><strong id="stat-probable">-</strong></div>
+                <div class="stat-card"><span class="stat-label">Ambiguous</span><strong id="stat-ambiguous">-</strong></div>
+                <div class="stat-card"><span class="stat-label">REST Only</span><strong id="stat-rest-only">-</strong></div>
+                <div class="stat-card"><span class="stat-label">XML Only</span><strong id="stat-xml-only">-</strong></div>
+            </div>
+            <div id="ingestion-message" class="ingestion-message" hidden></div>
+        </section>
+
         <!-- Search Section -->
         <section id="search-section" class="glass-panel">
             <h2>Search Residents</h2>
@@ -71,6 +88,17 @@
                     <span class="btn-text">Search</span>
                     <span class="btn-spinner" hidden></span>
                 </button>
+            </div>
+            <div class="search-options">
+                <label for="status-filter">Match status</label>
+                <select id="status-filter">
+                    <option value="">All statuses</option>
+                    <option value="EXACT">EXACT</option>
+                    <option value="PROBABLE">PROBABLE</option>
+                    <option value="AMBIGUOUS">AMBIGUOUS</option>
+                    <option value="REST_ONLY">REST_ONLY</option>
+                    <option value="XML_ONLY">XML_ONLY</option>
+                </select>
             </div>
         </section>
 
@@ -137,6 +165,11 @@
             <div id="results-list" class="results-list" hidden></div>
         </section>
 
+        <section id="detail-section" class="glass-panel" hidden>
+            <div class="results-header"><h2>Resident Detail</h2><button id="detail-close" type="button">Close</button></div>
+            <div id="detail-content"></div>
+        </section>
+
         <!-- Source Details (expandable) -->
         <section id="sources-section" class="glass-panel">
             <h2>Data Sources</h2>
@@ -148,7 +181,7 @@
                     </div>
                     <p class="source-description">Paginated JSON endpoint with resident contact records</p>
                     <div class="source-meta">
-                        <span class="source-port">Port 3001</span>
+                        <span class="source-port">Backend gateway</span>
                         <span id="source-status-rest" class="source-status">Checking...</span>
                     </div>
                 </div>
@@ -159,7 +192,7 @@
                     </div>
                     <p class="source-description">XML endpoint with resident case and program records</p>
                     <div class="source-meta">
-                        <span class="source-port">Port 3002</span>
+                        <span class="source-port">Backend gateway</span>
                         <span id="source-status-xml" class="source-status">Checking...</span>
                     </div>
                 </div>
@@ -171,7 +204,7 @@
          Footer
          ═══════════════════════════════════════════ -->
     <footer>
-        <p>No Wrong Door — Phase 0 Foundation &middot; Unified Resident View API</p>
+        <p>No Wrong Door &middot; Unified Resident View API</p>
     </footer>
 
     <script src="app.js"></script>
