@@ -508,6 +508,15 @@ main {
     white-space: nowrap;
 }
 
+.resident-address {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* ── Source Cards ──────────────────────────────────── */
 .sources-grid {
     display: grid;

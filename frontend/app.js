@@ -84,7 +84,8 @@
             );
 
             if (!response.ok) {
-                throw new Error(`Backend returned ${response.status}`);
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || `Backend returned ${response.status}`);
             }
 
             const data = await response.json();
@@ -96,7 +97,14 @@
 
             // Render results
             renderResults(data.results);
-            resultsCount.textContent = `${data.totalResults} result${data.totalResults !== 1 ? 's' : ''}`;
+
+            // Show matched count and optionally total REST records fetched
+            const matchText = `${data.totalResults} result${data.totalResults !== 1 ? 's' : ''}`;
+            const restTotalText = data.restTotal != null
+                ? ` (from ${data.restTotal} unique REST records)`
+                : '';
+            resultsCount.textContent = matchText + restTotalText;
+
             showState('results');
 
         } catch (err) {
@@ -125,7 +133,9 @@
                     <div class="resident-details">
                         <span>ID: ${escapeHtml(resident.id)}</span>
                         ${resident.dateOfBirth ? `<span>DOB: ${escapeHtml(resident.dateOfBirth)}</span>` : ''}
+                        ${resident.phone ? `<span>${escapeHtml(resident.phone)}</span>` : ''}
                     </div>
+                    ${resident.address ? `<div class="resident-address">${escapeHtml(resident.address)}</div>` : ''}
                 </div>
                 <span class="resident-source">${escapeHtml(resident.source || 'unknown')}</span>
             `;
