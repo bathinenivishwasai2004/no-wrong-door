@@ -108,12 +108,11 @@ public class UnifiedResident {
     private MatchStatus matchStatus;
 
     /**
-     * [app-generated] Matching confidence score 0–100.
+     * [app-generated] Evidence-rank score 0–100 (not a statistical probability).
      * <ul>
-     *   <li>100 — EXACT: id + name + born all agree</li>
-     *   <li>70  — PROBABLE: id matches but name/addr differs</li>
-     *   <li>60  — PROBABLE: name + born match (no shared id)</li>
-     *   <li>30  — AMBIGUOUS: multiple XML candidates</li>
+     *   <li>100 — EXACT: unique name + DOB</li>
+     *   <li>70  — PROBABLE: name + address; XML DOB missing</li>
+     *   <li>30  — AMBIGUOUS: unsafe / multiple candidates; not merged</li>
      *   <li>0   — REST_ONLY or XML_ONLY</li>
      * </ul>
      */
