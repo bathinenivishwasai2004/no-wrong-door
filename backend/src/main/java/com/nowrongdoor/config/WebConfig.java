@@ -26,10 +26,28 @@ public class WebConfig implements WebMvcConfigurer {
 
     /**
      * Shared RestTemplate bean — adapters use this to call their
-     * respective mock services. No retry/timeout config in Phase 0.
+     * respective mock services.
      */
     @Bean
     public RestTemplate restTemplate() {
         return new RestTemplate();
+    }
+
+    /**
+     * JSON ObjectMapper bean. Marked @Primary so general ObjectMapper injection
+     * uses the JSON mapper, not the XmlMapper subclass.
+     */
+    @Bean
+    @org.springframework.context.annotation.Primary
+    public com.fasterxml.jackson.databind.ObjectMapper objectMapper() {
+        return new com.fasterxml.jackson.databind.ObjectMapper();
+    }
+
+    /**
+     * XmlMapper bean for parsing XML payloads from the Benefits Register.
+     */
+    @Bean
+    public com.fasterxml.jackson.dataformat.xml.XmlMapper xmlMapper() {
+        return new com.fasterxml.jackson.dataformat.xml.XmlMapper();
     }
 }

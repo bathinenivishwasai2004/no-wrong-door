@@ -13,29 +13,22 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
- * Adapter for the paginated REST data source.
+ * Adapter for the official Calder County Resident Index (REST source).
  * <p>
- * Phase 1 responsibilities:
- * <ul>
- *   <li>Walk all pages until {@code totalPages} is exhausted.</li>
- *   <li>Deduplicate records across pages using the stable {@code id} field.</li>
- *   <li>Return a sealed {@link RestFetchResult} — never throws.</li>
- * </ul>
+ * Walks all pages using the {@code has_more} field from each response envelope.
+ * The service intentionally has unstable page boundaries: the same resident can
+ * appear on consecutive pages. Deduplication uses the stable {@code id} field
+ * (first-seen wins, insertion order preserved via {@link LinkedHashMap}).
  * <p>
- * <strong>Deduplication strategy:</strong> records are accumulated into a
- * {@code LinkedHashMap<String, RestResident>} keyed by {@code id}. If the same
- * {@code id} appears on multiple pages (as injected by the mock), the first
- * occurrence is kept and subsequent duplicates are silently discarded.
- * Insertion order is preserved, so results are deterministic for a given
- * source state.
+ * Pagination algorithm:
+ * <ol>
+ *   <li>Fetch page 1.</li>
+ *   <li>Accumulate {@code results} into the dedup map keyed by {@code id}.</li>
+ *   <li>If {@code has_more == true}, fetch the next page and repeat.</li>
+ *   <li>Stop when {@code has_more == false}.</li>
+ * </ol>
  * <p>
- * <strong>Pagination termination:</strong> the loop reads {@code totalPages} from
- * the first response envelope and iterates from page 1 through {@code totalPages}.
- * The page count is never hard-coded; if the source changes the number of records
- * or page size, the adapter adapts automatically.
- * <p>
- * This adapter is intentionally isolated — it knows nothing about the XML adapter
- * or any aggregation layer.
+ * Returns a sealed {@link RestFetchResult} — never throws.
  */
 @Component
 public class RestSourceAdapter {
@@ -48,141 +41,109 @@ public class RestSourceAdapter {
 
     public RestSourceAdapter(RestTemplate restTemplate,
                              RestSourceConfig config,
-                             ObjectMapper objectMapper) {
+                             @org.springframework.beans.factory.annotation.Qualifier("objectMapper") ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.config       = config;
         this.objectMapper = objectMapper;
     }
 
-    // ── Phase 1: full pagination + deduplication ───────────────────────────
-
     /**
-     * Fetch all residents from the REST source by walking every page.
+     * Fetch all residents from the REST Resident Index.
      * <p>
-     * Uses the {@code totalPages} field in the first response to determine
-     * how many pages exist, then fetches each one. Duplicates are removed
-     * using the resident's {@code id} as the stable unique key.
+     * Pages are walked via {@code has_more}. Records are deduplicated by
+     * {@code id}; first-seen page wins. Insertion order is preserved.
      *
-     * @return {@link RestFetchResult.Success} with deduplicated residents,
-     *         or {@link RestFetchResult.Failure} if any error occurs
+     * @return {@link RestFetchResult.Success} with stats, or {@link RestFetchResult.Failure}
      */
     public RestFetchResult fetchAllResidents() {
         int pageSize = config.getPageSize();
-        // LinkedHashMap preserves insertion order → deterministic output
+        // LinkedHashMap preserves insertion order — deterministic output
         LinkedHashMap<String, RestResident> seen = new LinkedHashMap<>();
+        int pagesFetched = 0;
+        int rawCount     = 0;
+        int page         = 1;
 
         try {
-            // ── Page 1 — also determines totalPages ────────────────────────
-            RestPageResponse firstPage = fetchPage(1, pageSize);
-            if (firstPage == null) {
-                return new RestFetchResult.Failure("REST source returned empty or unparseable response");
-            }
-
-            accumulate(firstPage.getData(), seen);
-            int totalPages = firstPage.getTotalPages();
-            log.info("REST source: page 1/{} fetched, {} records (total unique so far: {})",
-                     totalPages, firstPage.getData().size(), seen.size());
-
-            // ── Pages 2..totalPages ────────────────────────────────────────
-            for (int page = 2; page <= totalPages; page++) {
-                RestPageResponse next = fetchPage(page, pageSize);
-                if (next == null) {
-                    log.warn("REST source: page {} returned null — stopping early", page);
+            while (true) {
+                RestPageResponse response = fetchPage(page, pageSize);
+                if (response == null) {
+                    if (page == 1) {
+                        return new RestFetchResult.Failure(
+                                "REST source returned empty or unparseable response on page 1");
+                    }
+                    log.warn("REST: page {} returned null — stopping early", page);
                     break;
                 }
-                accumulate(next.getData(), seen);
-                log.info("REST source: page {}/{} fetched, {} records (total unique so far: {})",
-                         page, totalPages, next.getData().size(), seen.size());
+
+                List<RestResident> pageRecords = response.getResults();
+                int n = pageRecords.size();
+                rawCount += n;
+                pagesFetched++;
+                accumulate(pageRecords, seen);
+
+                log.info("REST: page {} — {} records ({} unique so far, has_more={})",
+                         page, n, seen.size(), response.isHasMore());
+
+                if (!response.isHasMore()) {
+                    break;
+                }
+                page++;
             }
 
             List<RestResident> result = new ArrayList<>(seen.values());
-            log.info("REST source: pagination complete — {} unique residents collected", result.size());
-            return new RestFetchResult.Success(result);
+            int dropped = rawCount - result.size();
+            log.info("REST: done — {} unique residents from {} pages ({} duplicates dropped)",
+                     result.size(), pagesFetched, dropped);
+            return new RestFetchResult.Success(result, pagesFetched, dropped);
 
         } catch (RestClientException e) {
             log.warn("REST source unreachable: {}", e.getMessage());
-            return new RestFetchResult.Failure("REST source is unreachable: " + e.getMessage(), e);
+            return new RestFetchResult.Failure("REST source unreachable: " + e.getMessage(), e);
         } catch (Exception e) {
-            log.error("Unexpected error fetching from REST source", e);
+            log.error("Unexpected error fetching REST source", e);
             return new RestFetchResult.Failure("Unexpected error: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * Fetch a single page and deserialize into {@link RestPageResponse}.
-     * Returns {@code null} if the body is null or cannot be parsed.
-     */
     private RestPageResponse fetchPage(int page, int size) throws Exception {
-        String url = config.getBaseUrl() + "/residents?page=" + page + "&size=" + size;
-        log.debug("REST source: fetching {}", url);
-
+        String url = config.getBaseUrl() + "/residents?page=" + page + "&page_size=" + size;
+        log.debug("REST: fetching {}", url);
         ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            log.warn("REST source: page {} returned HTTP {}", page, response.getStatusCode());
-            return null;
-        }
-
+        if (!response.getStatusCode().is2xxSuccessful()) return null;
         String body = response.getBody();
-        if (body == null || body.isBlank()) {
-            return null;
-        }
-
+        if (body == null || body.isBlank()) return null;
         return objectMapper.readValue(body, RestPageResponse.class);
     }
 
     /**
-     * Add residents from {@code incoming} into {@code seen}, skipping any
-     * whose {@code id} is already present (first-seen-wins deduplication).
+     * Accumulate records into the seen map, keyed by {@code id}.
+     * First-seen page wins; subsequent duplicates are silently skipped.
+     * Records with a null {@code id} are warned and skipped.
      */
     private void accumulate(List<RestResident> incoming,
                             LinkedHashMap<String, RestResident> seen) {
         if (incoming == null) return;
         for (RestResident r : incoming) {
             if (r.getId() == null) {
-                log.warn("REST source: skipping resident with null id");
+                log.warn("REST: skipping record with null id");
                 continue;
             }
-            if (seen.containsKey(r.getId())) {
-                log.debug("REST source: duplicate id={} discarded", r.getId());
-            } else {
+            if (!seen.containsKey(r.getId())) {
                 seen.put(r.getId(), r);
+            } else {
+                log.debug("REST: duplicate id={} dropped", r.getId());
             }
         }
     }
 
-    // ── Phase 0 methods — kept for backward compatibility ──────────────────
-
-    /**
-     * Fetch a single page of residents from the REST mock service.
-     * <p>
-     * Retained from Phase 0 so existing integration tests continue to pass.
-     *
-     * @param page page number (1-based)
-     * @param size number of records per page
-     * @return raw JSON response as a String
-     */
-    public String fetchResidents(int page, int size) {
-        String url = config.getBaseUrl() + "/residents?page=" + page + "&size=" + size;
-        log.info("Fetching residents from REST source: {}", url);
-
-        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-        log.info("REST source responded with status {}", response.getStatusCode());
-        return response.getBody();
-    }
-
-    /**
-     * Health check — can we reach the REST mock service?
-     *
-     * @return true if the service responds with 2xx
-     */
+    /** Health check — the /health endpoint has no delay or failure simulation. */
     public boolean checkHealth() {
         try {
-            String url = config.getBaseUrl() + "/health";
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-            return response.getStatusCode().is2xxSuccessful();
+            ResponseEntity<String> r = restTemplate.getForEntity(
+                    config.getBaseUrl() + "/health", String.class);
+            return r.getStatusCode().is2xxSuccessful();
         } catch (RestClientException e) {
-            log.warn("REST source health check failed: {}", e.getMessage());
+            log.warn("REST health check failed: {}", e.getMessage());
             return false;
         }
     }

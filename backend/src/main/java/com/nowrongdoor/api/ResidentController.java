@@ -115,13 +115,16 @@ public class ResidentController {
 
     private Map<String, String> toMap(RestResident r) {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put("id",          r.getId());
-        m.put("firstName",   r.getFirstName());
-        m.put("lastName",    r.getLastName());
-        m.put("dateOfBirth", r.getDateOfBirth());
-        m.put("address",     r.getAddress());
-        m.put("phone",       r.getPhone());
-        m.put("source",      "rest-source");
+        m.put("id",            r.getId());
+        m.put("firstName",     r.getFirstName());
+        m.put("lastName",      r.getLastName());
+        m.put("dateOfBirth",   r.getDateOfBirth());
+        m.put("addressLine",   r.getAddressLine());
+        m.put("city",          r.getCity());
+        m.put("phone",         r.getPhone());
+        m.put("programStatus", r.getProgramStatus());
+        m.put("lastContact",   r.getLastContact());
+        m.put("source",        "rest-source");
         return m;
     }
 

@@ -1,60 +1,66 @@
 package com.nowrongdoor.adapters.rest;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Represents one page of the REST source response envelope.
+ * One page of the official REST Resident Index paginated response.
  * <p>
- * The REST source returns JSON in this shape:
+ * The REST source returns:
  * <pre>
  * {
- *   "page":         1,
- *   "size":         10,
- *   "totalPages":   2,
- *   "totalRecords": 20,
- *   "data": [ ... ]
+ *   "page":      1,
+ *   "page_size": 25,
+ *   "total":     620,
+ *   "has_more":  true,
+ *   "results":   [ ... ]
  * }
  * </pre>
  * <p>
- * {@code @JsonIgnoreProperties(ignoreUnknown = true)} guards against future
- * fields being added to the source API without breaking deserialization.
+ * {@code has_more} is the authoritative signal to keep paginating.
+ * Do NOT derive a page count from {@code total} — the service has
+ * unstable boundaries and {@code has_more} is the source of truth.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class RestPageResponse {
 
     private int page;
-    private int size;
-    private int totalPages;
-    private int totalRecords;
-    private List<RestResident> data = Collections.emptyList();
 
-    /** Required by Jackson. */
+    @JsonProperty("page_size")
+    private int pageSize;
+
+    /** Total number of records in the source (informational only — do not drive pagination from this). */
+    private int total;
+
+    /** {@code true} if there is at least one more page to fetch. */
+    @JsonProperty("has_more")
+    private boolean hasMore;
+
+    /** The records on this page. */
+    private List<RestResident> results = Collections.emptyList();
+
     public RestPageResponse() {}
 
-    // ── Accessors ──────────────────────────────────────────────────────────
-
-    public int getPage()          { return page; }
-    public int getSize()          { return size; }
-    public int getTotalPages()    { return totalPages; }
-    public int getTotalRecords()  { return totalRecords; }
-
-    public List<RestResident> getData() {
-        return data != null ? data : Collections.emptyList();
+    public int getPage()       { return page; }
+    public int getPageSize()   { return pageSize; }
+    public int getTotal()      { return total; }
+    public boolean isHasMore() { return hasMore; }
+    public List<RestResident> getResults() {
+        return results != null ? results : Collections.emptyList();
     }
 
-    // Setters required by Jackson
-    public void setPage(int page)               { this.page = page; }
-    public void setSize(int size)               { this.size = size; }
-    public void setTotalPages(int totalPages)   { this.totalPages = totalPages; }
-    public void setTotalRecords(int totalRecords) { this.totalRecords = totalRecords; }
-    public void setData(List<RestResident> data)  { this.data = data; }
+    public void setPage(int v)                       { this.page = v; }
+    public void setPageSize(int v)                   { this.pageSize = v; }
+    public void setTotal(int v)                      { this.total = v; }
+    public void setHasMore(boolean v)                { this.hasMore = v; }
+    public void setResults(List<RestResident> v)     { this.results = v; }
 
     @Override
     public String toString() {
-        return "RestPageResponse{page=" + page + ", totalPages=" + totalPages +
-               ", records=" + (data != null ? data.size() : 0) + "}";
+        return "RestPageResponse{page=" + page + ", hasMore=" + hasMore
+               + ", results=" + (results != null ? results.size() : 0) + "}";
     }
 }

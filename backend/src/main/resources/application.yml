@@ -3,13 +3,32 @@ server:
 
 mock-services:
   rest:
-    base-url: http://localhost:3001
-    page-size: 10          # records per page requested from REST source
+    base-url: http://localhost:8081
+    page-size: 25
   xml:
-    base-url: http://localhost:3002
+    base-url: http://localhost:8082
+    timeout-ms: 5000
+    max-retries: 3
+    initial-backoff-ms: 500
 
-# Logging — keep it clean for Phase 0
+spring:
+  datasource:
+    url: jdbc:h2:mem:nwddb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
 logging:
   level:
     com.nowrongdoor: INFO
-    org.springframework.web: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
