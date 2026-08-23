@@ -138,7 +138,13 @@ public class IngestionService {
                     .xmlTown(xml.getTown()).xmlBenefitCode(xml.getBenefitCode()).xmlReviewDue(xml.getReviewDue());
         }
         resident.matchStatus(match.status()).matchConfidence(match.matchConfidence())
-                .matchNotes(match.matchNotes()).ingestedAt(ingestedAt);
+            .matchNotes(match.matchNotes()).ingestedAt(ingestedAt)
+            .evidenceNameEqual(match.evidence().nameEqual())
+            .evidenceDobEqual(match.evidence().dobEqual())
+            .evidenceAddressEqual(match.evidence().addressEqual())
+            .evidenceXmlDobMissing(match.evidence().xmlDobMissing())
+            .evidenceRestDobMissing(match.evidence().restDobMissing())
+            .evidenceCandidateRefs(String.join(",", match.evidence().xmlCandidateRefs()));
         residentRepository.save(resident);
     }
 

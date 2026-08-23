@@ -104,10 +104,41 @@
     function detailMarkup(resident) {
         const rest = resident.rest || {};
         const xml = resident.xml || {};
-        return `<div class="detail-heading"><h3>${escapeHtml(resident.name || 'Unnamed resident')}</h3>${statusBadge(resident.matchStatus)}<strong>${resident.matchConfidence}</strong></div>
-            <p class="detail-note">${escapeHtml(resident.matchNotes || '')}</p>
-            <div class="detail-grid"><div><h4>REST source</h4><p>ID: ${escapeHtml(rest.id || 'Unavailable')}</p><p>Name: ${escapeHtml([rest.firstName, rest.lastName].filter(Boolean).join(' ') || 'Unavailable')}</p><p>DOB: ${escapeHtml(rest.dateOfBirth || 'Unavailable')}</p><p>${escapeHtml(rest.address || 'Unavailable')}, ${escapeHtml(rest.city || 'Unavailable')}</p><p>Phone: ${escapeHtml(rest.phone || 'Unavailable')}</p></div>
-            <div><h4>XML source</h4><p>Ref: ${escapeHtml(xml.ref || 'Unavailable')}</p><p>Name: ${escapeHtml(xml.name || 'Unavailable')}</p><p>DOB: ${escapeHtml(xml.born || 'Unavailable')}</p><p>${escapeHtml(xml.address || 'Unavailable')}, ${escapeHtml(xml.town || 'Unavailable')}</p><p>Benefit: ${escapeHtml(xml.benefitCode || 'Unavailable')}</p></div></div>`;
+        const reviewMessage = resident.matchStatus === 'AMBIGUOUS' ? '<p class="review-warning">Manual review required.</p>'
+            : resident.matchStatus === 'EXACT' ? '<p class="review-success">Verified match.</p>' : '';
+        const rows = [
+            ['ID / Ref', rest.id, xml.ref, 'MATCH'],
+            ['Name', [rest.firstName, rest.lastName].filter(Boolean).join(' '), xml.name, 'NORMALIZED MATCH'],
+            ['Date of Birth', rest.dateOfBirth, xml.born, 'MATCH'],
+            ['Address', rest.address, xml.address, 'NORMALIZED MATCH'],
+            ['City / Town', rest.city, xml.town, 'MATCH'],
+            ['Phone', rest.phone, null, 'NOT AVAILABLE'],
+            ['Program Status', rest.programStatus, null, 'NOT AVAILABLE'],
+            ['Last Contact', rest.lastContact, null, 'NOT AVAILABLE'],
+            ['Benefit Code', null, xml.benefitCode, 'NOT AVAILABLE'],
+            ['Review Due', null, xml.reviewDue, 'NOT AVAILABLE']
+        ];
+        return `<div class="detail-heading"><h3>${escapeHtml(resident.name || 'Unnamed resident')}</h3>${statusBadge(resident.matchStatus)}<strong>Confidence: ${resident.matchConfidence}%</strong></div>
+            ${reviewMessage}<p class="detail-note">${escapeHtml(resident.matchNotes || '')}</p>
+            <div class="comparison-wrap"><table class="comparison-table"><thead><tr><th>Field</th><th>REST SOURCE</th><th>XML SOURCE</th><th>Comparison</th></tr></thead><tbody>${rows.map((row) => comparisonRow(row, resident)).join('')}</tbody></table></div>
+            <section class="evidence-section"><h4>Why was this record matched?</h4><ul>${(resident.evidence || []).map((item) => `<li class="evidence-${item.comparison.toLowerCase().replace(/\s+/g, '-')}"><strong>${escapeHtml(item.comparison)}</strong><span>${escapeHtml(item.reason)}</span>${item.candidateRefs?.length ? `<small>Candidates: ${escapeHtml(item.candidateRefs.join(', '))}</small>` : ''}</li>`).join('')}</ul></section>`;
+    }
+
+    function comparisonRow(row, resident) {
+        const [field, restValue, xmlValue, defaultComparison] = row;
+        const restPresent = restValue !== undefined && restValue !== null && restValue !== '';
+        const xmlPresent = xmlValue !== undefined && xmlValue !== null && xmlValue !== '';
+        let comparison = defaultComparison;
+        if (!restPresent || !xmlPresent) comparison = restPresent || xmlPresent ? 'NOT AVAILABLE' : 'MISSING';
+        if (restPresent && xmlPresent && field === 'Address' && resident.evidence?.some((item) => item.field === 'address and town' && item.comparison === 'DIFFERENT')) comparison = 'DIFFERENT';
+        if (restPresent && xmlPresent && field === 'Date of Birth' && resident.evidence?.some((item) => item.field === 'date of birth' && item.comparison === 'DIFFERENT')) comparison = 'DIFFERENT';
+        return `<tr class="comparison-${comparison.toLowerCase().replace(/\s+/g, '-')}"><th scope="row">${escapeHtml(field)}</th><td>${escapeHtml(restPresent ? restValue : sourceMissing('REST', resident.matchStatus))}</td><td>${escapeHtml(xmlPresent ? xmlValue : sourceMissing('XML', resident.matchStatus))}</td><td><span class="comparison-label">${escapeHtml(comparison)}</span></td></tr>`;
+    }
+
+    function sourceMissing(source, status) {
+        if (source === 'REST' && status === 'XML_ONLY') return 'No matching REST resident record found.';
+        if (source === 'XML' && status === 'REST_ONLY') return 'No matching XML benefits record found.';
+        return 'Unavailable';
     }
 
     async function refreshStats() {

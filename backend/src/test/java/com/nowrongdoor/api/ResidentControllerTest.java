@@ -77,6 +77,41 @@ class ResidentControllerTest {
                 .andExpect(jsonPath("$.sourceAvailability.xml").value(true));
     }
 
+            @Test
+            void detailExposesEvidenceAndConfidence() throws Exception {
+            UnifiedResident value = resident("R-2", "Jane", "Doe", MatchStatus.PROBABLE)
+                .matchConfidence(70).evidenceNameEqual(true).evidenceDobEqual(null)
+                .evidenceAddressEqual(true).evidenceXmlDobMissing(true)
+                .evidenceCandidateRefs("X-2").xmlRef("X-2").xmlName("DOE, Jane");
+            when(repository.findByRestId("R-2")).thenReturn(Optional.of(value));
+
+            mvc.perform(get("/api/residents/R-2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matchConfidence").value(70))
+                .andExpect(jsonPath("$.evidence[0].comparison").value("MATCH"))
+                .andExpect(jsonPath("$.evidence[1].comparison").value("MISSING"))
+                .andExpect(jsonPath("$.evidence[0].candidateRefs[0]").value("X-2"));
+            }
+
+            @Test
+            void restOnlyAndXmlOnlyDetailsDoNotFabricateSourceValues() throws Exception {
+            UnifiedResident restOnly = resident("R-3", "Rest", "Only", MatchStatus.REST_ONLY);
+            UnifiedResident xmlOnly = new UnifiedResident().xmlRef("X-3").xmlName("ONLY, Xml")
+                .matchStatus(MatchStatus.XML_ONLY).matchConfidence(0).matchNotes("note");
+            when(repository.findByRestId("R-3")).thenReturn(Optional.of(restOnly));
+            when(repository.findByRestId("X-3")).thenReturn(Optional.empty());
+            when(repository.findByXmlRef("X-3")).thenReturn(Optional.of(xmlOnly));
+
+            mvc.perform(get("/api/residents/R-3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rest.id").value("R-3"))
+                .andExpect(jsonPath("$.xml").doesNotExist());
+            mvc.perform(get("/api/residents/X-3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rest").doesNotExist())
+                .andExpect(jsonPath("$.xml.ref").value("X-3"));
+            }
+
     @Test
     void missingDetailReturns404() throws Exception {
         when(repository.findByRestId("missing")).thenReturn(Optional.empty());

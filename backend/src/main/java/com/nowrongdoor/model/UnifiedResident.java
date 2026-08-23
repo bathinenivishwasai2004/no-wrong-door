@@ -123,6 +123,24 @@ public class UnifiedResident {
     @Column(name = "match_notes", length = 500)
     private String matchNotes;
 
+    @Column(name = "evidence_name_equal")
+    private boolean evidenceNameEqual;
+
+    @Column(name = "evidence_dob_equal")
+    private Boolean evidenceDobEqual;
+
+    @Column(name = "evidence_address_equal")
+    private boolean evidenceAddressEqual;
+
+    @Column(name = "evidence_xml_dob_missing")
+    private boolean evidenceXmlDobMissing;
+
+    @Column(name = "evidence_rest_dob_missing")
+    private boolean evidenceRestDobMissing;
+
+    @Column(name = "evidence_candidate_refs", length = 2000)
+    private String evidenceCandidateRefs;
+
     /** [app-generated] When this record was written to the database. */
     @Column(name = "ingested_at", nullable = false)
     private Instant ingestedAt;
@@ -154,6 +172,12 @@ public class UnifiedResident {
     public UnifiedResident matchStatus(MatchStatus v)  { this.matchStatus = v; return this; }
     public UnifiedResident matchConfidence(int v)      { this.matchConfidence = v; return this; }
     public UnifiedResident matchNotes(String v)        { this.matchNotes = v; return this; }
+    public UnifiedResident evidenceNameEqual(boolean v) { this.evidenceNameEqual = v; return this; }
+    public UnifiedResident evidenceDobEqual(Boolean v)  { this.evidenceDobEqual = v; return this; }
+    public UnifiedResident evidenceAddressEqual(boolean v) { this.evidenceAddressEqual = v; return this; }
+    public UnifiedResident evidenceXmlDobMissing(boolean v) { this.evidenceXmlDobMissing = v; return this; }
+    public UnifiedResident evidenceRestDobMissing(boolean v) { this.evidenceRestDobMissing = v; return this; }
+    public UnifiedResident evidenceCandidateRefs(String v) { this.evidenceCandidateRefs = v; return this; }
     public UnifiedResident ingestedAt(Instant v)       { this.ingestedAt = v; return this; }
 
     // ── Getters ───────────────────────────────────────────────────────────
@@ -180,6 +204,12 @@ public class UnifiedResident {
     public MatchStatus getMatchStatus()  { return matchStatus; }
     public int getMatchConfidence()      { return matchConfidence; }
     public String getMatchNotes()        { return matchNotes; }
+    public boolean isEvidenceNameEqual() { return evidenceNameEqual; }
+    public Boolean getEvidenceDobEqual() { return evidenceDobEqual; }
+    public boolean isEvidenceAddressEqual() { return evidenceAddressEqual; }
+    public boolean isEvidenceXmlDobMissing() { return evidenceXmlDobMissing; }
+    public boolean isEvidenceRestDobMissing() { return evidenceRestDobMissing; }
+    public String getEvidenceCandidateRefs() { return evidenceCandidateRefs; }
     public Instant getIngestedAt()       { return ingestedAt; }
 
     /** Returns the best available display name (REST first name + last name, then XML full name). */
