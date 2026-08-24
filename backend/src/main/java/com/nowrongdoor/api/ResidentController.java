@@ -25,7 +25,7 @@ public class ResidentController {
     public SearchResponse search(
             @RequestParam(name = "q", defaultValue = "") String query,
             @RequestParam(required = false) MatchStatus status) {
-        String normalizedQuery = query == null ? "" : query.trim();
+        String normalizedQuery = query == null ? "" : query.trim().replaceAll("\\s+", " ");
         List<UnifiedResident> residents = status == null
                 ? residentRepository.search(normalizedQuery)
                 : residentRepository.search(normalizedQuery, status);
